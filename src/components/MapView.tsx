@@ -347,8 +347,8 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
           key={geo.rsmKey}
           geography={geo}
           fill={fillColor}
-          stroke="#ffffff"
-          strokeWidth={isHovered ? 2 : 1}
+          stroke="#6b7280"
+          strokeWidth={isHovered ? 2.5 : 1.5}
           style={{
             default: {
               outline: 'none',
@@ -437,7 +437,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
   return (
     <div 
       ref={mapContainerRef}
-      className="w-full h-full bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-2xl shadow-2xl overflow-hidden relative border-4 border-white"
+      className="w-full h-full bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-2xl shadow-2xl overflow-hidden relative border-4 border-gray-300"
     >
       <ComposableMap
         projection="geoAlbersUsa"
