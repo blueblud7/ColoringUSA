@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { geoAlbersUsa, geoBounds } from 'd3-geo'
-import { MapMode } from '../App'
+import { MapMode, Category } from '../App'
 
 interface MapViewProps {
   mode: MapMode
@@ -9,6 +9,8 @@ interface MapViewProps {
   selectedStateFips?: string | null
   coloredStates: Record<string, boolean>
   coloredCounties: Record<string, boolean>
+  stateCategories: Record<string, Category>
+  countyCategories: Record<string, Category>
   onRegionClick: (id: string, name?: string, fips?: string) => void
   onRegionCountChange?: (count: number) => void
 }
@@ -19,7 +21,7 @@ const STATES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 // 미국 카운티(County) TopoJSON URL
 const COUNTIES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json'
 
-export function MapView({ mode, selectedState, selectedStateFips, coloredStates, coloredCounties, onRegionClick, onRegionCountChange }: MapViewProps) {
+export function MapView({ mode, selectedState, selectedStateFips, coloredStates: _coloredStates, coloredCounties: _coloredCounties, stateCategories, countyCategories, onRegionClick, onRegionCountChange }: MapViewProps) {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null)
   const [hoveredRegionName, setHoveredRegionName] = useState<string | null>(null)
   const regionCountRef = useRef<number>(0)
@@ -91,65 +93,52 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredStates,
   // 카운티 모드에서 주가 선택되었을 때만 줌 가능
   const allowZoom = mode === 'counties' && selectedState !== null
 
-  // 주의 카운티 색칠 비율 계산
-  const getStateCountyRatio = (_stateId: string, stateFips?: string): number => {
-    if (!stateFips) return 0
-    
-    // 모든 카운티 중에서 해당 주의 카운티 찾기
-    let totalCounties = 0
-    let coloredCount = 0
-    
-    Object.keys(coloredCounties).forEach(countyId => {
-      // 카운티 ID에서 주 FIPS 코드 추출
-      const countyStateFips = /^\d{5}$/.test(countyId) ? countyId.substring(0, 2) : null
-      
-      if (countyStateFips === stateFips) {
-        totalCounties++
-        if (coloredCounties[countyId]) {
-          coloredCount++
-        }
-      }
-    })
-    
-    return totalCounties > 0 ? coloredCount / totalCounties : 0
+
+  // 카테고리별 색상 정의
+  const getCategoryColor = (category: Category, isImportant: boolean = false): string => {
+    switch (category) {
+      case 'visited':
+        return isImportant ? '#2563eb' : '#60a5fa' // 파란색 (진한/연한)
+      case 'passed':
+        return isImportant ? '#ca8a04' : '#fbbf24' // 노란색 (진한/연한)
+      case 'favorite':
+        return isImportant ? '#db2777' : '#f472b6' // 핑크색 (진한/연한) - 더 중요한 색
+      case 'want':
+        return isImportant ? '#9333ea' : '#c084fc' // 보라색 (진한/연한)
+      default:
+        return '#f3f4f6' // 기본 회색
+    }
   }
 
-  // 주 색상 계산 (카운티 색칠 비율에 따라 진하기 조정)
-  const getStateColor = (stateId: string, stateFips?: string): string => {
-    const isStateColored = coloredStates[stateId] || false
-    
-    if (!isStateColored) {
+  // 주 색상 계산 (카테고리별 색상 적용)
+  const getStateColor = (stateId: string, _stateFips?: string): string => {
+    const category = stateCategories[stateId]
+    if (!category) {
       return '#f3f4f6' // 기본 회색
     }
     
-    // 카운티 색칠 비율에 따라 색상 진하기 조정
-    const ratio = getStateCountyRatio(stateId, stateFips)
-    
-    // 비율에 따라 색상 진하기: 0% = 연한 색, 100% = 진한 색
-    // #a5f3d0 (연한 민트) -> #4ade80 (진한 민트)
-    const r1 = 0xa5, g1 = 0xf3, b1 = 0xd0 // 연한 민트
-    const r2 = 0x4a, g2 = 0xde, b2 = 0x80 // 진한 민트
-    
-    const r = Math.round(r1 + (r2 - r1) * ratio)
-    const g = Math.round(g1 + (g2 - g1) * ratio)
-    const b = Math.round(b1 + (b2 - b1) * ratio)
-    
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+    // Favorite는 더 중요한 색으로 표시
+    const isImportant = category === 'favorite'
+    return getCategoryColor(category, isImportant)
   }
 
-  // 카운티 색상 계산
+  // 카운티 색상 계산 (카테고리별 색상 적용)
   const getCountyColor = (countyId: string, stateFips?: string): string => {
-    const isCountyDirectlyColored = coloredCounties[countyId] || false
+    const category = countyCategories[countyId]
     
-    // 카운티가 직접 색칠되었으면 진한 색
-    if (isCountyDirectlyColored) {
-      return '#4ade80' // 진한 민트 색
+    // 카운티에 직접 카테고리가 있으면 해당 색상 사용
+    if (category) {
+      // Favorite는 더 중요한 색으로 표시
+      const isImportant = category === 'favorite'
+      return getCategoryColor(category, isImportant)
     }
     
     // 주가 색칠되어 있고 카운티가 직접 색칠되지 않았으면 옅은 색
     if (stateFips && selectedState) {
-      if (coloredStates[selectedState]) {
-        return '#d1fae5' // 매우 옅은 민트 색
+      const stateCategory = stateCategories[selectedState]
+      if (stateCategory) {
+        // 주의 카테고리를 옅게 표시
+        return getCategoryColor(stateCategory, false)
       }
     }
     

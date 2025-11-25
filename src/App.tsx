@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { MapView } from './components/MapView'
 import { ModeSelector } from './components/ModeSelector'
 import { ProgressBar } from './components/ProgressBar'
+import { CategorySelector } from './components/CategorySelector'
 import { useLocalStorage } from './hooks/useLocalStorage'
 
 export type MapMode = 'states' | 'counties'
+export type Category = 'visited' | 'passed' | 'favorite' | 'want' | null
 
 export interface ColoredRegion {
   id: string
@@ -18,28 +20,34 @@ function App() {
   const [selectedStateFips, setSelectedStateFips] = useState<string | null>(null)
   const [coloredStates, setColoredStates] = useLocalStorage<Record<string, boolean>>('coloredStates', {})
   const [coloredCounties, setColoredCounties] = useLocalStorage<Record<string, boolean>>('coloredCounties', {})
+  const [stateCategories, setStateCategories] = useLocalStorage<Record<string, Category>>('stateCategories', {})
+  const [countyCategories, setCountyCategories] = useLocalStorage<Record<string, Category>>('countyCategories', {})
+  const [selectedCategory, setSelectedCategory] = useState<Category>(null)
   const [regionCount, setRegionCount] = useState<number>(mode === 'states' ? 50 : 3143)
 
   const coloredRegions = mode === 'states' ? coloredStates : coloredCounties
 
-  // 카운티 ID에서 주 FIPS 코드 추출
-  const getStateFipsFromCountyId = (countyId: string): string | null => {
-    // 카운티 ID가 FIPS 코드 형식인지 확인 (예: "06001")
-    if (/^\d{5}$/.test(countyId)) {
-      return countyId.substring(0, 2)
-    }
-    return null
-  }
-
   const handleRegionClick = (id: string, _name?: string, fips?: string) => {
     if (mode === 'states') {
-      // 주 모드: 주를 색칠하면 주만 색칠 (카운티는 자동으로 색칠하지 않음)
-      const newStateColored = !coloredStates[id]
-      
-      setColoredStates(prev => ({
-        ...prev,
-        [id]: newStateColored
-      }))
+      // 주 모드: 선택된 카테고리로 주 색칠
+      if (selectedCategory) {
+        setStateCategories(prev => {
+          const currentCategory = prev[id]
+          // 같은 카테고리를 다시 클릭하면 제거, 다른 카테고리면 변경
+          const newCategory = currentCategory === selectedCategory ? null : selectedCategory
+          if (newCategory === null) {
+            const updated = { ...prev }
+            delete updated[id]
+            return updated
+          }
+          return { ...prev, [id]: newCategory }
+        })
+        // 색칠 상태도 업데이트
+        setColoredStates(prev => ({
+          ...prev,
+          [id]: selectedCategory !== null
+        }))
+      }
     } else {
       // 카운티 모드
       if (!selectedState) {
@@ -50,37 +58,33 @@ function App() {
           setSelectedStateFips(fips)
         }
       } else {
-        // 카운티 색칠: 카운티를 색칠하면 해당 주도 색칠
-        const newCountyColored = !coloredCounties[id]
-        
-        setColoredCounties(prev => {
-          const updated = { ...prev, [id]: newCountyColored }
+        // 카운티 모드: 선택된 카테고리로 카운티 색칠
+        if (selectedCategory) {
+          setCountyCategories(prev => {
+            const currentCategory = prev[id]
+            // 같은 카테고리를 다시 클릭하면 제거, 다른 카테고리면 변경
+            const newCategory = currentCategory === selectedCategory ? null : selectedCategory
+            if (newCategory === null) {
+              const updated = { ...prev }
+              delete updated[id]
+              return updated
+            }
+            return { ...prev, [id]: newCategory }
+          })
+          // 색칠 상태도 업데이트
+          setColoredCounties(prev => ({
+            ...prev,
+            [id]: selectedCategory !== null
+          }))
           
           // 카운티가 속한 주도 색칠 (카운티가 하나라도 색칠되면 주도 색칠)
           if (selectedStateFips && selectedState) {
-            // 해당 주의 카운티 중 하나라도 색칠되어 있으면 주도 색칠
-            const hasAnyColoredCounty = Object.keys(updated).some(countyId => {
-              const countyStateFips = getStateFipsFromCountyId(countyId)
-              return countyStateFips === selectedStateFips && updated[countyId]
-            })
-            
-            if (hasAnyColoredCounty) {
-              setColoredStates(prev => ({
-                ...prev,
-                [selectedState]: true
-              }))
-            } else {
-              // 모든 카운티가 색칠 해제되면 주도 색칠 해제
-              setColoredStates(prev => {
-                const newStates = { ...prev }
-                delete newStates[selectedState]
-                return newStates
-              })
-            }
+            setColoredStates(prev => ({
+              ...prev,
+              [selectedState]: true
+            }))
           }
-          
-          return updated
-        })
+        }
       }
     }
   }
@@ -115,6 +119,11 @@ function App() {
             onModeChange={handleModeChange}
           />
           
+          <CategorySelector
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+          
           {mode === 'counties' && (
             <div className="mb-4 flex items-center gap-4">
               {selectedState ? (
@@ -145,6 +154,8 @@ function App() {
               selectedStateFips={selectedStateFips}
               coloredStates={coloredStates}
               coloredCounties={coloredCounties}
+              stateCategories={stateCategories}
+              countyCategories={countyCategories}
               onRegionClick={handleRegionClick}
               onRegionCountChange={setRegionCount}
             />
