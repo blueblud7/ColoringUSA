@@ -7,7 +7,6 @@ interface MapViewProps {
   mode: MapMode
   selectedState?: string | null
   selectedStateFips?: string | null
-  coloredRegions: Record<string, boolean>
   coloredStates: Record<string, boolean>
   coloredCounties: Record<string, boolean>
   onRegionClick: (id: string, name?: string, fips?: string) => void
@@ -20,7 +19,7 @@ const STATES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 // 미국 카운티(County) TopoJSON URL
 const COUNTIES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json'
 
-export function MapView({ mode, selectedState, selectedStateFips, coloredRegions, coloredStates, coloredCounties, onRegionClick, onRegionCountChange }: MapViewProps) {
+export function MapView({ mode, selectedState, selectedStateFips, coloredStates, coloredCounties, onRegionClick, onRegionCountChange }: MapViewProps) {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null)
   const [hoveredRegionName, setHoveredRegionName] = useState<string | null>(null)
   const regionCountRef = useRef<number>(0)
