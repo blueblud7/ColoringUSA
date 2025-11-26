@@ -21,7 +21,6 @@ function App() {
   const [regionCount, setRegionCount] = useState<number>(mode === 'states' ? 50 : 3143)
 
   const coloredRegions = mode === 'states' ? coloredStates : coloredCounties
-  const setColoredRegions = mode === 'states' ? setColoredStates : setColoredCounties
 
   // 카운티 ID에서 주 FIPS 코드 추출
   const getStateFipsFromCountyId = (countyId: string): string | null => {
@@ -32,14 +31,7 @@ function App() {
     return null
   }
 
-  // 주 FIPS 코드로 주 이름 찾기 (주 데이터에서)
-  const getStateNameFromFips = (stateFips: string, allStates: any[]): string | null => {
-    // 이 함수는 MapView에서 주 데이터를 받아야 하므로, 
-    // 일단 주 이름을 직접 매칭하는 방식으로 처리
-    return null
-  }
-
-  const handleRegionClick = (id: string, name?: string, fips?: string) => {
+  const handleRegionClick = (id: string, _name?: string, fips?: string) => {
     if (mode === 'states') {
       // 주 모드: 주를 색칠하면 주만 색칠 (카운티는 자동으로 색칠하지 않음)
       const isCurrentlyColored = coloredStates[id] || false
