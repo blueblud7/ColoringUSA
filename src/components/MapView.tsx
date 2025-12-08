@@ -10,6 +10,7 @@ interface MapViewProps {
   coloredRegions: Record<string, boolean>
   coloredStates: Record<string, boolean>
   coloredCounties: Record<string, boolean>
+  coloredCountries: Record<string, boolean>
   onRegionClick: (id: string, name?: string, fips?: string) => void
   onRegionCountChange?: (count: number) => void
 }
@@ -20,7 +21,10 @@ const STATES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 // 미국 카운티(County) TopoJSON URL
 const COUNTIES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json'
 
-export function MapView({ mode, selectedState, selectedStateFips, coloredRegions: _coloredRegions, coloredStates, coloredCounties, onRegionClick, onRegionCountChange }: MapViewProps) {
+// 세계지도 TopoJSON URL
+const WORLD_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
+
+export function MapView({ mode, selectedState, selectedStateFips, coloredRegions: _coloredRegions, coloredStates, coloredCounties, coloredCountries, onRegionClick, onRegionCountChange }: MapViewProps) {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null)
   const [hoveredRegionName, setHoveredRegionName] = useState<string | null>(null)
   const regionCountRef = useRef<number>(0)
@@ -30,10 +34,12 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
   const countiesGeographiesRef = useRef<Geo[]>([])
   const mapContainerRef = useRef<HTMLDivElement>(null)
   
-  // 카운티 모드에서 주가 선택되지 않았으면 주 지도를 보여줌
-  const geoUrl = (mode === 'states' || (mode === 'counties' && !selectedState)) 
-    ? STATES_URL 
-    : COUNTIES_URL
+  // 지도 URL 결정
+  const geoUrl = mode === 'world' 
+    ? WORLD_URL
+    : (mode === 'states' || (mode === 'counties' && !selectedState)) 
+      ? STATES_URL 
+      : COUNTIES_URL
 
   // 지역 수가 변경되면 부모 컴포넌트에 알림 (렌더링 후 처리)
   useEffect(() => {
@@ -61,7 +67,11 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     [key: string]: any
   }
 
-  const getRegionId = (geo: Geo, isCountyMode: boolean): string => {
+  const getRegionId = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean): string => {
+    if (isWorldMode) {
+      // 세계지도 모드: 국가 이름 또는 ISO 코드 사용
+      return geo.properties.NAME || geo.properties.NAME_LONG || geo.properties.ISO_A2 || geo.properties.ISO_A3 || geo.id || geo.rsmKey
+    }
     if (!isCountyMode || !selectedState) {
       // 주 모드이거나 주 선택 중
       return geo.properties.name || geo.id || geo.rsmKey
@@ -76,7 +86,11 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     }
   }
 
-  const getRegionName = (geo: Geo, isCountyMode: boolean): string => {
+  const getRegionName = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean): string => {
+    if (isWorldMode) {
+      // 세계지도 모드
+      return geo.properties.NAME || geo.properties.NAME_LONG || geo.properties.ISO_A2 || geo.id || geo.rsmKey
+    }
     if (!isCountyMode || !selectedState) {
       // 주 모드이거나 주 선택 중
       return geo.properties.name || geo.id || geo.rsmKey
@@ -230,10 +244,13 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     }
   }, [allowZoom, selectedState, selectedStateFips])
 
-  function renderGeographies(geographies: Geo[], isCountyMode: boolean) {
+  function renderGeographies(geographies: Geo[], isCountyMode: boolean, isWorldMode: boolean) {
     // 카운티 모드이고 주가 선택된 경우, 해당 주의 카운티만 필터링
     let filteredGeographies = geographies
-    if (isCountyMode && selectedState) {
+    if (isWorldMode) {
+      // 세계지도 모드: 모든 국가 표시
+      countiesGeographiesRef.current = []
+    } else if (isCountyMode && selectedState) {
       // 디버깅: 첫 번째 카운티의 속성 확인
       if (geographies.length > 0) {
         console.log('Total counties:', geographies.length)
@@ -302,13 +319,15 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     }
     
     return filteredGeographies.map((geo) => {
-      const regionId = getRegionId(geo, isCountyMode)
-      const regionName = getRegionName(geo, isCountyMode)
+      const regionId = getRegionId(geo, isCountyMode, isWorldMode)
+      const regionName = getRegionName(geo, isCountyMode, isWorldMode)
       const isHovered = hoveredRegion === regionId
       
-      // 주 FIPS 코드 추출
+      // 주 FIPS 코드 추출 (세계지도 모드에서는 불필요)
       let stateFips: string | undefined = undefined
-      if (!isCountyMode || !selectedState) {
+      if (isWorldMode) {
+        // 세계지도 모드에서는 FIPS 코드 불필요
+      } else if (!isCountyMode || !selectedState) {
         const geoId = geo.id || geo.properties.id || ''
         const fips = geo.properties.fips || ''
         
@@ -334,7 +353,10 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       
       // 색상 결정
       let fillColor: string
-      if (!isCountyMode || !selectedState) {
+      if (isWorldMode) {
+        // 세계지도 모드: 국가 색칠 여부에 따라 색상 결정
+        fillColor = coloredCountries[regionId] ? '#4ade80' : '#f3f4f6'
+      } else if (!isCountyMode || !selectedState) {
         // 주 모드: 카운티 색칠 비율에 따라 색상 진하기 조정
         fillColor = getStateColor(regionId, stateFips)
       } else {
@@ -358,7 +380,10 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             },
             hover: {
               fill: (() => {
-                if (!isCountyMode || !selectedState) {
+                if (isWorldMode) {
+                  // 세계지도 모드
+                  return fillColor === '#4ade80' ? '#22c55e' : '#e5e7eb'
+                } else if (!isCountyMode || !selectedState) {
                   // 주 모드: 호버 시 약간 진한 색
                   return fillColor === '#f3f4f6' ? '#e5e7eb' : '#86efac'
                 } else {
@@ -387,8 +412,11 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             },
           }}
           onClick={() => {
-            // 주 모드이거나 주 선택 중일 때는 FIPS 코드 전달
-            if (!isCountyMode || !selectedState) {
+            if (isWorldMode) {
+              // 세계지도 모드: 국가 클릭
+              onRegionClick(regionId, regionName)
+            } else if (!isCountyMode || !selectedState) {
+              // 주 모드이거나 주 선택 중일 때는 FIPS 코드 전달
               // us-atlas 주 데이터에서 FIPS 코드 추출
               // 주 데이터의 id는 보통 숫자 2자리 (예: "06" for California)
               const geoId = geo.id || geo.properties.id || ''
@@ -440,7 +468,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       className="w-full h-full bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-2xl shadow-2xl overflow-hidden relative border-4 border-gray-300"
     >
       <ComposableMap
-        projection="geoAlbersUsa"
+        projection={mode === 'world' ? 'geoMercator' : 'geoAlbersUsa'}
         style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         {allowZoom ? (
@@ -450,14 +478,14 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
           >
             <Geographies geography={geoUrl}>
               {({ geographies }: { geographies: Geo[] }) => {
-                return renderGeographies(geographies, true)
+                return renderGeographies(geographies, mode === 'counties', mode === 'world')
               }}
             </Geographies>
           </ZoomableGroup>
         ) : (
           <Geographies geography={geoUrl}>
             {({ geographies }: { geographies: Geo[] }) => {
-              return renderGeographies(geographies, false)
+              return renderGeographies(geographies, mode === 'counties', mode === 'world')
             }}
           </Geographies>
         )}

@@ -4,7 +4,7 @@ import { ModeSelector } from './components/ModeSelector'
 import { ProgressBar } from './components/ProgressBar'
 import { useLocalStorage } from './hooks/useLocalStorage'
 
-export type MapMode = 'states' | 'counties'
+export type MapMode = 'states' | 'counties' | 'world'
 
 export interface ColoredRegion {
   id: string
@@ -18,9 +18,12 @@ function App() {
   const [selectedStateFips, setSelectedStateFips] = useState<string | null>(null)
   const [coloredStates, setColoredStates] = useLocalStorage<Record<string, boolean>>('coloredStates', {})
   const [coloredCounties, setColoredCounties] = useLocalStorage<Record<string, boolean>>('coloredCounties', {})
-  const [regionCount, setRegionCount] = useState<number>(mode === 'states' ? 50 : 3143)
+  const [coloredCountries, setColoredCountries] = useLocalStorage<Record<string, boolean>>('coloredCountries', {})
+  const [regionCount, setRegionCount] = useState<number>(
+    mode === 'states' ? 50 : mode === 'counties' ? 3143 : 195
+  )
 
-  const coloredRegions = mode === 'states' ? coloredStates : coloredCounties
+  const coloredRegions = mode === 'states' ? coloredStates : mode === 'counties' ? coloredCounties : coloredCountries
 
   // 카운티 ID에서 주 FIPS 코드 추출
   const getStateFipsFromCountyId = (countyId: string): string | null => {
@@ -32,7 +35,22 @@ function App() {
   }
 
   const handleRegionClick = (id: string, _name?: string, fips?: string) => {
-    if (mode === 'states') {
+    if (mode === 'world') {
+      // 세계지도 모드: 국가를 색칠
+      const isCurrentlyColored = coloredCountries[id] || false
+      
+      setColoredCountries(prev => {
+        const newCountries = { ...prev }
+        if (isCurrentlyColored) {
+          // 색칠 해제: 키를 삭제
+          delete newCountries[id]
+        } else {
+          // 색칠: true로 설정
+          newCountries[id] = true
+        }
+        return newCountries
+      })
+    } else if (mode === 'states') {
       // 주 모드: 주를 색칠하면 주만 색칠 (카운티는 자동으로 색칠하지 않음)
       const isCurrentlyColored = coloredStates[id] || false
       
@@ -106,7 +124,7 @@ function App() {
 
   const handleModeChange = (newMode: MapMode) => {
     setMode(newMode)
-    if (newMode === 'states') {
+    if (newMode === 'states' || newMode === 'world') {
       setSelectedState(null)
       setSelectedStateFips(null)
     }
@@ -115,6 +133,7 @@ function App() {
   const handleReset = () => {
     setColoredStates({})
     setColoredCounties({})
+    setColoredCountries({})
     setSelectedState(null)
     setSelectedStateFips(null)
   }
@@ -178,6 +197,7 @@ function App() {
               coloredRegions={coloredRegions}
               coloredStates={coloredStates}
               coloredCounties={coloredCounties}
+              coloredCountries={coloredCountries}
               onRegionClick={handleRegionClick}
               onRegionCountChange={setRegionCount}
             />

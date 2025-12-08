@@ -28,6 +28,16 @@ export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
       >
         Counties
       </button>
+      <button
+        onClick={() => onModeChange('world')}
+        className={`px-6 py-3 rounded-lg font-medium transition-all ${
+          mode === 'world'
+            ? 'bg-blue-500 text-white shadow-lg'
+            : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
+        }`}
+      >
+        World
+      </button>
     </div>
   )
 }
