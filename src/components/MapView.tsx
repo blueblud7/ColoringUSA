@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
-import { geoAlbersUsa, geoBounds, geoMercator } from 'd3-geo'
+import { geoAlbersUsa, geoBounds } from 'd3-geo'
 import { MapMode } from '../App'
 import { getContinentForCountry, Continent } from '../data/continents'
 
@@ -212,11 +212,17 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
           // 모든 카운티를 하나의 FeatureCollection로 합치기
           const featureCollection = {
             type: 'FeatureCollection',
-            features: countiesGeographiesRef.current.map(geo => ({
-              type: 'Feature',
-              geometry: geo,
-              properties: geo.properties
-            }))
+            features: countiesGeographiesRef.current.map(geo => {
+              // react-simple-maps의 Geo 객체는 이미 Feature 형식이거나 geometry 속성을 가질 수 있음
+              if (geo.type === 'Feature') {
+                return geo
+              }
+              return {
+                type: 'Feature',
+                geometry: geo.geometry || geo,
+                properties: geo.properties
+              }
+            })
           }
 
           // 경계 상자 계산 (지리 좌표)
@@ -229,41 +235,70 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             const centerLon = (minLon + maxLon) / 2
             const centerLat = (minLat + maxLat) / 2
             
-            // 프로젝션 설정 (대주 모드일 때는 geoMercator, 카운티 모드일 때는 geoAlbersUsa)
-            const projection = isContinentMode 
-              ? geoMercator()
-                  .scale(1)
-                  .translate([0, 0])
-              : geoAlbersUsa()
-                  .scale(1070)
-                  .translate([480, 250])
-            
-            // 경계 상자의 네 모서리를 프로젝션 좌표로 변환
-            const topLeft = projection([minLon, maxLat])
-            const bottomRight = projection([maxLon, minLat])
-            
-            if (topLeft && bottomRight && topLeft.length === 2 && bottomRight.length === 2) {
-              // 프로젝션된 경계 상자 크기
-              const projectedWidth = Math.abs(bottomRight[0] - topLeft[0])
-              const projectedHeight = Math.abs(bottomRight[1] - topLeft[1])
-              
-              // 화면 크기 가져오기 (실제 컨테이너 크기)
+            if (isContinentMode) {
+              // 대주 모드: geoMercator 사용, 간단한 줌 계산
+              // 화면 크기 가져오기
               const containerWidth = mapContainerRef.current?.clientWidth || 960
               const containerHeight = mapContainerRef.current?.clientHeight || 500
               
-              // 15-20% 여백을 고려 (평균 17.5%)
-              const margin = 0.175
-              const availableWidth = containerWidth * (1 - margin * 2)
-              const availableHeight = containerHeight * (1 - margin * 2)
+              // 경계 상자의 크기 계산 (도 단위)
+              const lonRange = maxLon - minLon
+              const latRange = maxLat - minLat
               
-              // 필요한 줌 레벨 계산 (가장 작은 비율에 맞춤)
-              const zoomX = availableWidth / projectedWidth
-              const zoomY = availableHeight / projectedHeight
-              const zoom = Math.min(zoomX, zoomY)
+              if (lonRange > 0 && latRange > 0) {
+                // 여백 고려
+                const margin = 0.15
+                const availableWidth = containerWidth * (1 - margin * 2)
+                const availableHeight = containerHeight * (1 - margin * 2)
+                
+                // geoMercator는 경도 360도를 화면 너비로 매핑
+                // 기본적으로 360도 = 960px라고 가정
+                const baseWidth = 960
+                const lonScale = baseWidth / 360
+                
+                // 필요한 줌 레벨 계산
+                const zoomX = (availableWidth / (lonRange * lonScale)) * 0.9
+                const zoomY = (availableHeight / (latRange * lonScale)) * 0.9
+                const zoom = Math.min(zoomX, zoomY, 8) // 최대 줌 레벨 8
+                
+                // 중심점은 지리 좌표로 사용
+                setZoomCenter([centerLon, centerLat])
+                setZoomLevel(Math.max(zoom, 0.8)) // 최소 줌 레벨 0.8
+                console.log(`Continent zoom: ${zoom}, center: [${centerLon}, ${centerLat}], bounds: [${minLon}, ${minLat}] to [${maxLon}, ${maxLat}]`)
+              }
+            } else {
+              // 카운티 모드: 기존 로직 사용
+              const projection = geoAlbersUsa()
+                .scale(1070)
+                .translate([480, 250])
               
-              // 중심점은 지리 좌표로 사용 (ZoomableGroup이 지리 좌표를 받음)
-              setZoomCenter([centerLon, centerLat])
-              setZoomLevel(Math.max(zoom, 1)) // 최소 줌 레벨 1
+              // 경계 상자의 네 모서리를 프로젝션 좌표로 변환
+              const topLeft = projection([minLon, maxLat])
+              const bottomRight = projection([maxLon, minLat])
+              
+              if (topLeft && bottomRight && topLeft.length === 2 && bottomRight.length === 2) {
+                // 프로젝션된 경계 상자 크기
+                const projectedWidth = Math.abs(bottomRight[0] - topLeft[0])
+                const projectedHeight = Math.abs(bottomRight[1] - topLeft[1])
+                
+                // 화면 크기 가져오기 (실제 컨테이너 크기)
+                const containerWidth = mapContainerRef.current?.clientWidth || 960
+                const containerHeight = mapContainerRef.current?.clientHeight || 500
+                
+                // 15-20% 여백을 고려 (평균 17.5%)
+                const margin = 0.175
+                const availableWidth = containerWidth * (1 - margin * 2)
+                const availableHeight = containerHeight * (1 - margin * 2)
+                
+                // 필요한 줌 레벨 계산 (가장 작은 비율에 맞춤)
+                const zoomX = availableWidth / projectedWidth
+                const zoomY = availableHeight / projectedHeight
+                const zoom = Math.min(zoomX, zoomY)
+                
+                // 중심점은 지리 좌표로 사용 (ZoomableGroup이 지리 좌표를 받음)
+                setZoomCenter([centerLon, centerLat])
+                setZoomLevel(Math.max(zoom, 1)) // 최소 줌 레벨 1
+              }
             }
           }
         } catch (error) {
@@ -294,8 +329,23 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
         const countryName = geo.properties.NAME || geo.properties.NAME_LONG
         
         const continent = getContinentForCountry(isoA2, isoA3, countryName)
-        return continent === selectedContinent
+        const matches = continent === selectedContinent
+        
+        // 디버깅: 첫 몇 개 나라의 매핑 확인
+        if (geographies.indexOf(geo) < 10 && !matches) {
+          console.log(`Country: ${countryName || isoA2 || isoA3}, ISO_A2: ${isoA2}, ISO_A3: ${isoA3}, Continent: ${continent}, Selected: ${selectedContinent}, Matches: ${matches}`)
+        }
+        
+        return matches
       })
+      console.log(`Filtered ${filteredGeographies.length} countries for ${selectedContinent} from ${geographies.length} total`)
+      
+      // 필터링된 나라가 없으면 모든 나라를 표시 (디버깅용)
+      if (filteredGeographies.length === 0) {
+        console.warn(`No countries found for ${selectedContinent}. Showing all countries for debugging.`)
+        filteredGeographies = geographies.slice(0, 10) // 처음 10개만 표시
+      }
+      
       countiesGeographiesRef.current = filteredGeographies
     } else if (isCountyMode && selectedState) {
       // 디버깅: 첫 번째 카운티의 속성 확인
@@ -532,10 +582,10 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
         projection={(mode === 'world' || isContinentMode) ? 'geoMercator' : 'geoAlbersUsa'}
         style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        {allowZoom || isContinentMode ? (
+        {allowZoom ? (
           <ZoomableGroup 
-            center={zoomCenter || undefined}
-            zoom={zoomLevel}
+            center={zoomCenter || (isContinentMode ? [0, 0] : undefined)}
+            zoom={zoomLevel || (isContinentMode ? 1 : 1)}
           >
             <Geographies geography={geoUrl}>
               {({ geographies }: { geographies: Geo[] }) => {
