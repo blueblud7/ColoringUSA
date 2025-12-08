@@ -69,8 +69,18 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
 
   const getRegionId = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean): string => {
     if (isWorldMode) {
-      // 세계지도 모드: 국가 이름 또는 ISO 코드 사용
-      return geo.properties.NAME || geo.properties.NAME_LONG || geo.properties.ISO_A2 || geo.properties.ISO_A3 || geo.id || geo.rsmKey
+      // 세계지도 모드: ISO 코드를 우선 사용 (고유하고 안정적), 없으면 나라 이름 사용
+      // 숫자 ID는 피하기 위해 ISO 코드나 이름을 우선 사용
+      const isoA3 = geo.properties.ISO_A3
+      const isoA2 = geo.properties.ISO_A2
+      const name = geo.properties.NAME || geo.properties.NAME_LONG
+      
+      if (isoA3) return String(isoA3)
+      if (isoA2) return String(isoA2)
+      if (name) return String(name)
+      
+      // 최후의 수단으로만 숫자 ID 사용
+      return geo.id ? String(geo.id) : geo.rsmKey
     }
     if (!isCountyMode || !selectedState) {
       // 주 모드이거나 주 선택 중
@@ -88,8 +98,18 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
 
   const getRegionName = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean): string => {
     if (isWorldMode) {
-      // 세계지도 모드
-      return geo.properties.NAME || geo.properties.NAME_LONG || geo.properties.ISO_A2 || geo.id || geo.rsmKey
+      // 세계지도 모드: 나라 이름을 우선 사용
+      const name = geo.properties.NAME || geo.properties.NAME_LONG
+      if (name) return String(name)
+      
+      // 이름이 없으면 ISO 코드 사용
+      const isoA3 = geo.properties.ISO_A3
+      const isoA2 = geo.properties.ISO_A2
+      if (isoA3) return String(isoA3)
+      if (isoA2) return String(isoA2)
+      
+      // 최후의 수단으로만 숫자 ID 사용
+      return geo.id ? String(geo.id) : geo.rsmKey
     }
     if (!isCountyMode || !selectedState) {
       // 주 모드이거나 주 선택 중
