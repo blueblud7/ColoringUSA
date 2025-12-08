@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
-import { geoAlbersUsa, geoBounds } from 'd3-geo'
+import { geoAlbersUsa, geoBounds, geoMercator } from 'd3-geo'
 import { MapMode } from '../App'
+import { getContinentForCountry, Continent } from '../data/continents'
 
 interface MapViewProps {
   mode: MapMode
@@ -11,6 +12,12 @@ interface MapViewProps {
   coloredStates: Record<string, boolean>
   coloredCounties: Record<string, boolean>
   coloredCountries: Record<string, boolean>
+  coloredAsia?: Record<string, boolean>
+  coloredEurope?: Record<string, boolean>
+  coloredAfrica?: Record<string, boolean>
+  coloredNorthAmerica?: Record<string, boolean>
+  coloredSouthAmerica?: Record<string, boolean>
+  coloredOceania?: Record<string, boolean>
   onRegionClick: (id: string, name?: string, fips?: string) => void
   onRegionCountChange?: (count: number) => void
 }
@@ -24,7 +31,7 @@ const COUNTIES_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json'
 // 세계지도 TopoJSON URL
 const WORLD_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
-export function MapView({ mode, selectedState, selectedStateFips, coloredRegions: _coloredRegions, coloredStates, coloredCounties, coloredCountries, onRegionClick, onRegionCountChange }: MapViewProps) {
+export function MapView({ mode, selectedState, selectedStateFips, coloredRegions: _coloredRegions, coloredStates, coloredCounties, coloredCountries, coloredAsia, coloredEurope, coloredAfrica, coloredNorthAmerica, coloredSouthAmerica, coloredOceania, onRegionClick, onRegionCountChange }: MapViewProps) {
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null)
   const [hoveredRegionName, setHoveredRegionName] = useState<string | null>(null)
   const regionCountRef = useRef<number>(0)
@@ -34,8 +41,12 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
   const countiesGeographiesRef = useRef<Geo[]>([])
   const mapContainerRef = useRef<HTMLDivElement>(null)
   
+  // 대주 모드인지 확인
+  const isContinentMode = mode === 'asia' || mode === 'europe' || mode === 'africa' || 
+                          mode === 'north-america' || mode === 'south-america' || mode === 'oceania'
+  
   // 지도 URL 결정
-  const geoUrl = mode === 'world' 
+  const geoUrl = (mode === 'world' || isContinentMode)
     ? WORLD_URL
     : (mode === 'states' || (mode === 'counties' && !selectedState)) 
       ? STATES_URL 
@@ -67,8 +78,8 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     [key: string]: any
   }
 
-  const getRegionId = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean): string => {
-    if (isWorldMode) {
+  const getRegionId = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean, isContinentMode: boolean): string => {
+    if (isWorldMode || isContinentMode) {
       // 세계지도 모드: ISO 코드를 우선 사용 (고유하고 안정적), 없으면 나라 이름 사용
       // 숫자 ID는 피하기 위해 ISO 코드나 이름을 우선 사용
       const isoA3 = geo.properties.ISO_A3
@@ -96,8 +107,8 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     }
   }
 
-  const getRegionName = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean): string => {
-    if (isWorldMode) {
+  const getRegionName = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean, isContinentMode: boolean): string => {
+    if (isWorldMode || isContinentMode) {
       // 세계지도 모드: 나라 이름을 우선 사용
       const name = geo.properties.NAME || geo.properties.NAME_LONG
       if (name) return String(name)
@@ -123,8 +134,8 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
   }
 
   // 주 모드이거나 카운티 모드에서 주 선택 중일 때는 줌 불가 (고정)
-  // 카운티 모드에서 주가 선택되었을 때만 줌 가능
-  const allowZoom = mode === 'counties' && selectedState !== null
+  // 카운티 모드에서 주가 선택되었을 때 또는 대주 모드일 때 줌 가능
+  const allowZoom = (mode === 'counties' && selectedState !== null) || isContinentMode
 
   // 주의 카운티 색칠 비율 계산
   const getStateCountyRatio = (_stateId: string, stateFips?: string): number => {
@@ -192,7 +203,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     return '#f3f4f6'
   }
 
-  // 카운티들의 경계를 계산하여 중앙과 줌 레벨 설정
+  // 카운티 또는 대주 나라들의 경계를 계산하여 중앙과 줌 레벨 설정
   useEffect(() => {
     if (allowZoom && countiesGeographiesRef.current.length > 0) {
       // 약간의 지연을 두어 DOM이 렌더링된 후 크기를 가져오기
@@ -218,10 +229,14 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             const centerLon = (minLon + maxLon) / 2
             const centerLat = (minLat + maxLat) / 2
             
-            // 프로젝션 설정 (react-simple-maps와 동일)
-            const projection = geoAlbersUsa()
-              .scale(1070)
-              .translate([480, 250])
+            // 프로젝션 설정 (대주 모드일 때는 geoMercator, 카운티 모드일 때는 geoAlbersUsa)
+            const projection = isContinentMode 
+              ? geoMercator()
+                  .scale(1)
+                  .translate([0, 0])
+              : geoAlbersUsa()
+                  .scale(1070)
+                  .translate([480, 250])
             
             // 경계 상자의 네 모서리를 프로젝션 좌표로 변환
             const topLeft = projection([minLon, maxLat])
@@ -262,14 +277,26 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       setZoomCenter(null)
       setZoomLevel(1)
     }
-  }, [allowZoom, selectedState, selectedStateFips])
+  }, [allowZoom, selectedState, selectedStateFips, isContinentMode, mode])
 
   function renderGeographies(geographies: Geo[], isCountyMode: boolean, isWorldMode: boolean): JSX.Element[] {
     // 카운티 모드이고 주가 선택된 경우, 해당 주의 카운티만 필터링
     let filteredGeographies = geographies
-    if (isWorldMode) {
-      // 세계지도 모드: 모든 국가 표시
+    if (isWorldMode && !isContinentMode) {
+      // 세계지도 모드 (대주 모드가 아닐 때): 모든 국가 표시
       countiesGeographiesRef.current = []
+    } else if (isContinentMode) {
+      // 대주 모드: 선택된 대주에 해당하는 나라만 필터링
+      const selectedContinent = mode as Continent
+      filteredGeographies = geographies.filter((geo) => {
+        const isoA2 = geo.properties.ISO_A2
+        const isoA3 = geo.properties.ISO_A3
+        const countryName = geo.properties.NAME || geo.properties.NAME_LONG
+        
+        const continent = getContinentForCountry(isoA2, isoA3, countryName)
+        return continent === selectedContinent
+      })
+      countiesGeographiesRef.current = filteredGeographies
     } else if (isCountyMode && selectedState) {
       // 디버깅: 첫 번째 카운티의 속성 확인
       if (geographies.length > 0) {
@@ -339,14 +366,14 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     }
     
     return filteredGeographies.map((geo) => {
-      const regionId = getRegionId(geo, isCountyMode, isWorldMode)
-      const regionName = getRegionName(geo, isCountyMode, isWorldMode)
+      const regionId = getRegionId(geo, isCountyMode, isWorldMode, isContinentMode)
+      const regionName = getRegionName(geo, isCountyMode, isWorldMode, isContinentMode)
       const isHovered = hoveredRegion === regionId
       
-      // 주 FIPS 코드 추출 (세계지도 모드에서는 불필요)
+      // 주 FIPS 코드 추출 (세계지도 모드나 대주 모드에서는 불필요)
       let stateFips: string | undefined = undefined
-      if (isWorldMode) {
-        // 세계지도 모드에서는 FIPS 코드 불필요
+      if (isWorldMode || isContinentMode) {
+        // 세계지도 모드나 대주 모드에서는 FIPS 코드 불필요
       } else if (!isCountyMode || !selectedState) {
         const geoId = geo.id || geo.properties.id || ''
         const fips = geo.properties.fips || ''
@@ -373,7 +400,17 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       
       // 색상 결정
       let fillColor: string
-      if (isWorldMode) {
+      if (isContinentMode) {
+        // 대주 모드: 해당 대주의 색칠 상태 확인
+        const continentColored = 
+          mode === 'asia' ? coloredAsia :
+          mode === 'europe' ? coloredEurope :
+          mode === 'africa' ? coloredAfrica :
+          mode === 'north-america' ? coloredNorthAmerica :
+          mode === 'south-america' ? coloredSouthAmerica :
+          mode === 'oceania' ? coloredOceania : {}
+        fillColor = continentColored?.[regionId] ? '#4ade80' : '#f3f4f6'
+      } else if (isWorldMode) {
         // 세계지도 모드: 국가 색칠 여부에 따라 색상 결정
         fillColor = coloredCountries[regionId] ? '#4ade80' : '#f3f4f6'
       } else if (!isCountyMode || !selectedState) {
@@ -400,8 +437,8 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             },
             hover: {
               fill: (() => {
-                if (isWorldMode) {
-                  // 세계지도 모드
+                if (isContinentMode || isWorldMode) {
+                  // 대주 모드 또는 세계지도 모드
                   return fillColor === '#4ade80' ? '#22c55e' : '#e5e7eb'
                 } else if (!isCountyMode || !selectedState) {
                   // 주 모드: 호버 시 약간 진한 색
@@ -432,8 +469,8 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             },
           }}
           onClick={() => {
-            if (isWorldMode) {
-              // 세계지도 모드: 국가 클릭
+            if (isContinentMode || isWorldMode) {
+              // 대주 모드 또는 세계지도 모드: 국가 클릭
               onRegionClick(regionId, regionName)
             } else if (!isCountyMode || !selectedState) {
               // 주 모드이거나 주 선택 중일 때는 FIPS 코드 전달
@@ -484,7 +521,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
 
   // 타입 좁히기 문제를 피하기 위해 미리 계산
   const isCountyMode = mode === 'counties'
-  const isWorldMode = mode === 'world'
+  const isWorldMode = mode === 'world' && !isContinentMode
 
   return (
     <div 
@@ -492,10 +529,10 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       className="w-full h-full bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-2xl shadow-2xl overflow-hidden relative border-4 border-gray-300"
     >
       <ComposableMap
-        projection={mode === 'world' ? 'geoMercator' : 'geoAlbersUsa'}
+        projection={(mode === 'world' || isContinentMode) ? 'geoMercator' : 'geoAlbersUsa'}
         style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        {allowZoom ? (
+        {allowZoom || isContinentMode ? (
           <ZoomableGroup 
             center={zoomCenter || undefined}
             zoom={zoomLevel}

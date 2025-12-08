@@ -3,8 +3,9 @@ import { MapView } from './components/MapView'
 import { ModeSelector } from './components/ModeSelector'
 import { ProgressBar } from './components/ProgressBar'
 import { useLocalStorage } from './hooks/useLocalStorage'
+import { Continent } from './data/continents'
 
-export type MapMode = 'states' | 'counties' | 'world'
+export type MapMode = 'states' | 'counties' | 'world' | Continent
 
 export interface ColoredRegion {
   id: string
@@ -19,11 +20,31 @@ function App() {
   const [coloredStates, setColoredStates] = useLocalStorage<Record<string, boolean>>('coloredStates', {})
   const [coloredCounties, setColoredCounties] = useLocalStorage<Record<string, boolean>>('coloredCounties', {})
   const [coloredCountries, setColoredCountries] = useLocalStorage<Record<string, boolean>>('coloredCountries', {})
+  const [coloredAsia, setColoredAsia] = useLocalStorage<Record<string, boolean>>('coloredAsia', {})
+  const [coloredEurope, setColoredEurope] = useLocalStorage<Record<string, boolean>>('coloredEurope', {})
+  const [coloredAfrica, setColoredAfrica] = useLocalStorage<Record<string, boolean>>('coloredAfrica', {})
+  const [coloredNorthAmerica, setColoredNorthAmerica] = useLocalStorage<Record<string, boolean>>('coloredNorthAmerica', {})
+  const [coloredSouthAmerica, setColoredSouthAmerica] = useLocalStorage<Record<string, boolean>>('coloredSouthAmerica', {})
+  const [coloredOceania, setColoredOceania] = useLocalStorage<Record<string, boolean>>('coloredOceania', {})
+  
   const [regionCount, setRegionCount] = useState<number>(
     mode === 'states' ? 50 : mode === 'counties' ? 3143 : 195
   )
 
-  const coloredRegions = mode === 'states' ? coloredStates : mode === 'counties' ? coloredCounties : coloredCountries
+  const getColoredRegionsForMode = (currentMode: MapMode): Record<string, boolean> => {
+    if (currentMode === 'states') return coloredStates
+    if (currentMode === 'counties') return coloredCounties
+    if (currentMode === 'world') return coloredCountries
+    if (currentMode === 'asia') return coloredAsia
+    if (currentMode === 'europe') return coloredEurope
+    if (currentMode === 'africa') return coloredAfrica
+    if (currentMode === 'north-america') return coloredNorthAmerica
+    if (currentMode === 'south-america') return coloredSouthAmerica
+    if (currentMode === 'oceania') return coloredOceania
+    return {}
+  }
+
+  const coloredRegions = getColoredRegionsForMode(mode)
 
   // 카운티 ID에서 주 FIPS 코드 추출
   const getStateFipsFromCountyId = (countyId: string): string | null => {
@@ -50,6 +71,73 @@ function App() {
         }
         return newCountries
       })
+    } else if (mode === 'asia' || mode === 'europe' || mode === 'africa' || 
+               mode === 'north-america' || mode === 'south-america' || mode === 'oceania') {
+      // 대주 모드: 해당 대주의 국가를 색칠
+      const continentColored = getColoredRegionsForMode(mode)
+      const isCurrentlyColored = continentColored[id] || false
+      
+      if (mode === 'asia') {
+        setColoredAsia(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+          } else {
+            newCountries[id] = true
+          }
+          return newCountries
+        })
+      } else if (mode === 'europe') {
+        setColoredEurope(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+          } else {
+            newCountries[id] = true
+          }
+          return newCountries
+        })
+      } else if (mode === 'africa') {
+        setColoredAfrica(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+          } else {
+            newCountries[id] = true
+          }
+          return newCountries
+        })
+      } else if (mode === 'north-america') {
+        setColoredNorthAmerica(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+          } else {
+            newCountries[id] = true
+          }
+          return newCountries
+        })
+      } else if (mode === 'south-america') {
+        setColoredSouthAmerica(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+          } else {
+            newCountries[id] = true
+          }
+          return newCountries
+        })
+      } else if (mode === 'oceania') {
+        setColoredOceania(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+          } else {
+            newCountries[id] = true
+          }
+          return newCountries
+        })
+      }
     } else if (mode === 'states') {
       // 주 모드: 주를 색칠하면 주만 색칠 (카운티는 자동으로 색칠하지 않음)
       const isCurrentlyColored = coloredStates[id] || false
@@ -124,7 +212,9 @@ function App() {
 
   const handleModeChange = (newMode: MapMode) => {
     setMode(newMode)
-    if (newMode === 'states' || newMode === 'world') {
+    if (newMode === 'states' || newMode === 'world' || 
+        newMode === 'asia' || newMode === 'europe' || newMode === 'africa' ||
+        newMode === 'north-america' || newMode === 'south-america' || newMode === 'oceania') {
       setSelectedState(null)
       setSelectedStateFips(null)
     }
@@ -134,6 +224,12 @@ function App() {
     setColoredStates({})
     setColoredCounties({})
     setColoredCountries({})
+    setColoredAsia({})
+    setColoredEurope({})
+    setColoredAfrica({})
+    setColoredNorthAmerica({})
+    setColoredSouthAmerica({})
+    setColoredOceania({})
     setSelectedState(null)
     setSelectedStateFips(null)
   }
@@ -198,6 +294,12 @@ function App() {
               coloredStates={coloredStates}
               coloredCounties={coloredCounties}
               coloredCountries={coloredCountries}
+              coloredAsia={coloredAsia}
+              coloredEurope={coloredEurope}
+              coloredAfrica={coloredAfrica}
+              coloredNorthAmerica={coloredNorthAmerica}
+              coloredSouthAmerica={coloredSouthAmerica}
+              coloredOceania={coloredOceania}
               onRegionClick={handleRegionClick}
               onRegionCountChange={setRegionCount}
             />
