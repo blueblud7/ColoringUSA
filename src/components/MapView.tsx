@@ -352,10 +352,13 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       })
       console.log(`Filtered ${filteredGeographies.length} countries for ${selectedContinent} from ${geographies.length} total`)
       
-      // 필터링된 나라가 없으면 모든 나라를 표시 (디버깅용)
+      // 필터링된 나라가 없으면 경고만 표시 (디버깅용)
       if (filteredGeographies.length === 0) {
-        console.warn(`No countries found for ${selectedContinent}. Showing first 10 countries for debugging.`)
-        filteredGeographies = geographies.slice(0, 10) // 처음 10개만 표시
+        console.warn(`No countries found for ${selectedContinent}. Check country name mapping.`)
+        // 오세아니아의 경우 나라가 적을 수 있으므로 모든 나라의 이름을 로그로 출력
+        if (selectedContinent === 'oceania') {
+          console.log('All country names in dataset:', geographies.slice(0, 20).map(g => g.properties?.name || g.properties?.NAME || 'unknown'))
+        }
       }
       
       countiesGeographiesRef.current = filteredGeographies
@@ -463,7 +466,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       // 색상 결정
       let fillColor: string
       if (isContinentMode) {
-        // 대주 모드: 해당 대주의 색칠 상태 확인
+        // 대주 모드: 해당 대주의 색칠 상태 확인 (World 모드와 동기화되어 있음)
         const continentColored = 
           mode === 'asia' ? coloredAsia :
           mode === 'europe' ? coloredEurope :
@@ -471,10 +474,19 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
           mode === 'north-america' ? coloredNorthAmerica :
           mode === 'south-america' ? coloredSouthAmerica :
           mode === 'oceania' ? coloredOceania : {}
-        fillColor = continentColored?.[regionId] ? '#4ade80' : '#f3f4f6'
+        // 대주 모드에서도 World 모드의 색칠 상태를 확인 (동기화를 위해)
+        fillColor = (continentColored?.[regionId] || coloredCountries[regionId]) ? '#4ade80' : '#f3f4f6'
       } else if (isWorldMode) {
-        // 세계지도 모드: 국가 색칠 여부에 따라 색상 결정
-        fillColor = coloredCountries[regionId] ? '#4ade80' : '#f3f4f6'
+        // 세계지도 모드: 모든 대주의 색칠 상태를 통합하여 표시
+        const isColoredInAnyContinent = 
+          coloredAsia?.[regionId] || 
+          coloredEurope?.[regionId] || 
+          coloredAfrica?.[regionId] || 
+          coloredNorthAmerica?.[regionId] || 
+          coloredSouthAmerica?.[regionId] || 
+          coloredOceania?.[regionId] ||
+          coloredCountries[regionId]
+        fillColor = isColoredInAnyContinent ? '#4ade80' : '#f3f4f6'
       } else if (!isCountyMode || !selectedState) {
         // 주 모드: 카운티 색칠 비율에 따라 색상 진하기 조정
         fillColor = getStateColor(regionId, stateFips)

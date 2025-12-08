@@ -2,12 +2,12 @@
 export type Continent = 'asia' | 'europe' | 'africa' | 'north-america' | 'south-america' | 'oceania'
 
 export const CONTINENT_NAMES: Record<Continent, string> = {
-  'asia': '아시아',
-  'europe': '유럽',
-  'africa': '아프리카',
-  'north-america': '북미',
-  'south-america': '남미',
-  'oceania': '오세아니아'
+  'asia': 'Asia',
+  'europe': 'Europe',
+  'africa': 'Africa',
+  'north-america': 'North America',
+  'south-america': 'South America',
+  'oceania': 'Oceania'
 }
 
 // ISO_A2 코드를 대주로 매핑
@@ -135,7 +135,10 @@ const COUNTRY_NAME_TO_CONTINENT: Record<string, Continent> = {
   'Australia': 'oceania', 'New Zealand': 'oceania', 'Fiji': 'oceania', 'Papua New Guinea': 'oceania',
   'Solomon Islands': 'oceania', 'Vanuatu': 'oceania', 'New Caledonia': 'oceania', 'French Polynesia': 'oceania',
   'Samoa': 'oceania', 'Tonga': 'oceania', 'Kiribati': 'oceania', 'Micronesia': 'oceania',
-  'Marshall Islands': 'oceania', 'Nauru': 'oceania', 'Palau': 'oceania', 'Tuvalu': 'oceania'
+  'Marshall Islands': 'oceania', 'Nauru': 'oceania', 'Palau': 'oceania', 'Tuvalu': 'oceania',
+  // 추가 오세아니아 국가들 (다른 이름으로 표시될 수 있음)
+  'American Samoa': 'oceania', 'Cook Islands': 'oceania', 'Guam': 'oceania', 'Niue': 'oceania',
+  'Northern Mariana Islands': 'oceania', 'Pitcairn Islands': 'oceania', 'Tokelau': 'oceania', 'Wallis and Futuna': 'oceania'
 }
 
 export function getContinentForCountry(isoA2?: string, isoA3?: string, countryName?: string): Continent | null {

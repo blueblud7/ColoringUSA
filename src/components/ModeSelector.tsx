@@ -21,7 +21,7 @@ export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
               : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
           }`}
         >
-          States
+          USA
         </button>
         <button
           onClick={() => onModeChange('counties')}

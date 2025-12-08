@@ -28,7 +28,7 @@ function App() {
   const [coloredOceania, setColoredOceania] = useLocalStorage<Record<string, boolean>>('coloredOceania', {})
   
   const [regionCount, setRegionCount] = useState<number>(
-    mode === 'states' ? 50 : mode === 'counties' ? 3143 : 195
+    mode === 'states' ? 50 : mode === 'counties' ? 3143 : mode === 'world' ? 195 : 0
   )
 
   const getColoredRegionsForMode = (currentMode: MapMode): Record<string, boolean> => {
@@ -77,66 +77,44 @@ function App() {
       const continentColored = getColoredRegionsForMode(mode)
       const isCurrentlyColored = continentColored[id] || false
       
+      // 대주 모드에서 색칠할 때 World 모드에도 동기화
+      const updateContinentAndWorld = (
+        continentSetter: (value: Record<string, boolean> | ((val: Record<string, boolean>) => Record<string, boolean>)) => void
+      ) => {
+        continentSetter(prev => {
+          const newCountries = { ...prev }
+          if (isCurrentlyColored) {
+            delete newCountries[id]
+            // World 모드에서도 제거
+            setColoredCountries(worldPrev => {
+              const newWorld = { ...worldPrev }
+              delete newWorld[id]
+              return newWorld
+            })
+          } else {
+            newCountries[id] = true
+            // World 모드에도 추가
+            setColoredCountries(worldPrev => ({
+              ...worldPrev,
+              [id]: true
+            }))
+          }
+          return newCountries
+        })
+      }
+
       if (mode === 'asia') {
-        setColoredAsia(prev => {
-          const newCountries = { ...prev }
-          if (isCurrentlyColored) {
-            delete newCountries[id]
-          } else {
-            newCountries[id] = true
-          }
-          return newCountries
-        })
+        updateContinentAndWorld(setColoredAsia)
       } else if (mode === 'europe') {
-        setColoredEurope(prev => {
-          const newCountries = { ...prev }
-          if (isCurrentlyColored) {
-            delete newCountries[id]
-          } else {
-            newCountries[id] = true
-          }
-          return newCountries
-        })
+        updateContinentAndWorld(setColoredEurope)
       } else if (mode === 'africa') {
-        setColoredAfrica(prev => {
-          const newCountries = { ...prev }
-          if (isCurrentlyColored) {
-            delete newCountries[id]
-          } else {
-            newCountries[id] = true
-          }
-          return newCountries
-        })
+        updateContinentAndWorld(setColoredAfrica)
       } else if (mode === 'north-america') {
-        setColoredNorthAmerica(prev => {
-          const newCountries = { ...prev }
-          if (isCurrentlyColored) {
-            delete newCountries[id]
-          } else {
-            newCountries[id] = true
-          }
-          return newCountries
-        })
+        updateContinentAndWorld(setColoredNorthAmerica)
       } else if (mode === 'south-america') {
-        setColoredSouthAmerica(prev => {
-          const newCountries = { ...prev }
-          if (isCurrentlyColored) {
-            delete newCountries[id]
-          } else {
-            newCountries[id] = true
-          }
-          return newCountries
-        })
+        updateContinentAndWorld(setColoredSouthAmerica)
       } else if (mode === 'oceania') {
-        setColoredOceania(prev => {
-          const newCountries = { ...prev }
-          if (isCurrentlyColored) {
-            delete newCountries[id]
-          } else {
-            newCountries[id] = true
-          }
-          return newCountries
-        })
+        updateContinentAndWorld(setColoredOceania)
       }
     } else if (mode === 'states') {
       // 주 모드: 주를 색칠하면 주만 색칠 (카운티는 자동으로 색칠하지 않음)
