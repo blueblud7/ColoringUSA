@@ -79,12 +79,88 @@ export const COUNTRY_TO_CONTINENT_A3: Record<string, Continent> = {
   'AUS': 'oceania', 'NZL': 'oceania'
 }
 
-export function getContinentForCountry(isoA2?: string, isoA3?: string, _countryName?: string): Continent | null {
+// 나라 이름을 대주로 매핑 (world-atlas@2는 ISO 코드가 없고 이름만 있음)
+const COUNTRY_NAME_TO_CONTINENT: Record<string, Continent> = {
+  // 아시아
+  'Afghanistan': 'asia', 'Armenia': 'asia', 'Azerbaijan': 'asia', 'Bahrain': 'asia', 'Bangladesh': 'asia',
+  'Bhutan': 'asia', 'Brunei': 'asia', 'Cambodia': 'asia', 'China': 'asia', 'Georgia': 'asia',
+  'India': 'asia', 'Indonesia': 'asia', 'Iran': 'asia', 'Iraq': 'asia', 'Israel': 'asia',
+  'Japan': 'asia', 'Jordan': 'asia', 'Kazakhstan': 'asia', 'Kuwait': 'asia', 'Kyrgyzstan': 'asia',
+  'Laos': 'asia', 'Lebanon': 'asia', 'Malaysia': 'asia', 'Maldives': 'asia', 'Mongolia': 'asia',
+  'Myanmar': 'asia', 'Nepal': 'asia', 'North Korea': 'asia', 'Oman': 'asia', 'Pakistan': 'asia',
+  'Palestine': 'asia', 'Philippines': 'asia', 'Qatar': 'asia', 'Saudi Arabia': 'asia', 'Singapore': 'asia',
+  'South Korea': 'asia', 'Sri Lanka': 'asia', 'Syria': 'asia', 'Taiwan': 'asia', 'Tajikistan': 'asia',
+  'Thailand': 'asia', 'Timor-Leste': 'asia', 'Turkey': 'asia', 'Turkmenistan': 'asia', 'United Arab Emirates': 'asia',
+  'Uzbekistan': 'asia', 'Vietnam': 'asia', 'Yemen': 'asia',
+  
+  // 유럽
+  'Albania': 'europe', 'Andorra': 'europe', 'Austria': 'europe', 'Belarus': 'europe', 'Belgium': 'europe',
+  'Bosnia and Herzegovina': 'europe', 'Bulgaria': 'europe', 'Croatia': 'europe', 'Cyprus': 'europe', 'Czech Republic': 'europe',
+  'Denmark': 'europe', 'Estonia': 'europe', 'Finland': 'europe', 'France': 'europe', 'Germany': 'europe',
+  'Greece': 'europe', 'Hungary': 'europe', 'Iceland': 'europe', 'Ireland': 'europe', 'Italy': 'europe',
+  'Latvia': 'europe', 'Liechtenstein': 'europe', 'Lithuania': 'europe', 'Luxembourg': 'europe', 'Malta': 'europe',
+  'Moldova': 'europe', 'Monaco': 'europe', 'Montenegro': 'europe', 'Netherlands': 'europe', 'North Macedonia': 'europe',
+  'Norway': 'europe', 'Poland': 'europe', 'Portugal': 'europe', 'Romania': 'europe', 'Russia': 'europe',
+  'San Marino': 'europe', 'Serbia': 'europe', 'Slovakia': 'europe', 'Slovenia': 'europe', 'Spain': 'europe',
+  'Sweden': 'europe', 'Switzerland': 'europe', 'Ukraine': 'europe', 'United Kingdom': 'europe', 'Vatican City': 'europe',
+  
+  // 아프리카
+  'Algeria': 'africa', 'Angola': 'africa', 'Benin': 'africa', 'Botswana': 'africa', 'Burkina Faso': 'africa',
+  'Burundi': 'africa', 'Cape Verde': 'africa', 'Cameroon': 'africa', 'Central African Republic': 'africa', 'Chad': 'africa',
+  'Comoros': 'africa', 'Congo': 'africa', 'Democratic Republic of the Congo': 'africa', 'Ivory Coast': 'africa', 'Djibouti': 'africa',
+  'Egypt': 'africa', 'Equatorial Guinea': 'africa', 'Eritrea': 'africa', 'Eswatini': 'africa', 'Ethiopia': 'africa',
+  'Gabon': 'africa', 'Gambia': 'africa', 'Ghana': 'africa', 'Guinea': 'africa', 'Guinea-Bissau': 'africa',
+  'Kenya': 'africa', 'Lesotho': 'africa', 'Liberia': 'africa', 'Libya': 'africa', 'Madagascar': 'africa',
+  'Malawi': 'africa', 'Mali': 'africa', 'Mauritania': 'africa', 'Mauritius': 'africa', 'Morocco': 'africa',
+  'Mozambique': 'africa', 'Namibia': 'africa', 'Niger': 'africa', 'Nigeria': 'africa', 'Rwanda': 'africa',
+  'São Tomé and Príncipe': 'africa', 'Senegal': 'africa', 'Seychelles': 'africa', 'Sierra Leone': 'africa', 'Somalia': 'africa',
+  'South Africa': 'africa', 'South Sudan': 'africa', 'Sudan': 'africa', 'Tanzania': 'africa', 'Togo': 'africa',
+  'Tunisia': 'africa', 'Uganda': 'africa', 'Zambia': 'africa', 'Zimbabwe': 'africa',
+  
+  // 북미
+  'Canada': 'north-america', 'Mexico': 'north-america', 'United States of America': 'north-america',
+  'Belize': 'north-america', 'Costa Rica': 'north-america', 'El Salvador': 'north-america',
+  'Guatemala': 'north-america', 'Honduras': 'north-america', 'Nicaragua': 'north-america',
+  'Panama': 'north-america', 'Cuba': 'north-america', 'Dominican Republic': 'north-america',
+  'Haiti': 'north-america', 'Jamaica': 'north-america', 'Bahamas': 'north-america',
+  'Barbados': 'north-america', 'Grenada': 'north-america', 'Trinidad and Tobago': 'north-america',
+  
+  // 남미
+  'Argentina': 'south-america', 'Bolivia': 'south-america', 'Brazil': 'south-america',
+  'Chile': 'south-america', 'Colombia': 'south-america', 'Ecuador': 'south-america',
+  'Guyana': 'south-america', 'Paraguay': 'south-america', 'Peru': 'south-america',
+  'Suriname': 'south-america', 'Uruguay': 'south-america', 'Venezuela': 'south-america',
+  
+  // 오세아니아
+  'Australia': 'oceania', 'New Zealand': 'oceania', 'Fiji': 'oceania', 'Papua New Guinea': 'oceania',
+  'Solomon Islands': 'oceania', 'Vanuatu': 'oceania', 'New Caledonia': 'oceania', 'French Polynesia': 'oceania',
+  'Samoa': 'oceania', 'Tonga': 'oceania', 'Kiribati': 'oceania', 'Micronesia': 'oceania',
+  'Marshall Islands': 'oceania', 'Nauru': 'oceania', 'Palau': 'oceania', 'Tuvalu': 'oceania'
+}
+
+export function getContinentForCountry(isoA2?: string, isoA3?: string, countryName?: string): Continent | null {
+  // ISO 코드로 먼저 시도
   if (isoA2 && COUNTRY_TO_CONTINENT[isoA2]) {
     return COUNTRY_TO_CONTINENT[isoA2]
   }
   if (isoA3 && COUNTRY_TO_CONTINENT_A3[isoA3]) {
     return COUNTRY_TO_CONTINENT_A3[isoA3]
   }
+  
+  // 나라 이름으로 시도 (world-atlas@2는 이름만 있음)
+  if (countryName) {
+    const normalizedName = countryName.trim()
+    // 정확한 매칭
+    if (COUNTRY_NAME_TO_CONTINENT[normalizedName]) {
+      return COUNTRY_NAME_TO_CONTINENT[normalizedName]
+    }
+    // 부분 매칭 (예: "United States" -> "United States of America")
+    for (const [name, continent] of Object.entries(COUNTRY_NAME_TO_CONTINENT)) {
+      if (normalizedName.includes(name) || name.includes(normalizedName)) {
+        return continent
+      }
+    }
+  }
+  
   return null
 }

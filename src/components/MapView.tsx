@@ -82,9 +82,10 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     if (isWorldMode || isContinentMode) {
       // 세계지도 모드: ISO 코드를 우선 사용 (고유하고 안정적), 없으면 나라 이름 사용
       // 숫자 ID는 피하기 위해 ISO 코드나 이름을 우선 사용
-      const isoA3 = geo.properties.ISO_A3
-      const isoA2 = geo.properties.ISO_A2
-      const name = geo.properties.NAME || geo.properties.NAME_LONG
+      const props = geo.properties || {}
+      const isoA3 = props.ISO_A3 || props.iso_a3 || props.ISO3 || props.iso3 || props.ISO_A3_EH
+      const isoA2 = props.ISO_A2 || props.iso_a2 || props.ISO2 || props.iso2 || props.ISO_A2_EH
+      const name = props.NAME || props.NAME_LONG || props.name || props.NAME_EN || props.name_en || props.ADMIN || props.admin
       
       if (isoA3) return String(isoA3)
       if (isoA2) return String(isoA2)
@@ -110,12 +111,13 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
   const getRegionName = (geo: Geo, isCountyMode: boolean, isWorldMode: boolean, isContinentMode: boolean): string => {
     if (isWorldMode || isContinentMode) {
       // 세계지도 모드: 나라 이름을 우선 사용
-      const name = geo.properties.NAME || geo.properties.NAME_LONG
+      const props = geo.properties || {}
+      const name = props.NAME || props.NAME_LONG || props.name || props.NAME_EN || props.name_en || props.ADMIN || props.admin
       if (name) return String(name)
       
       // 이름이 없으면 ISO 코드 사용
-      const isoA3 = geo.properties.ISO_A3
-      const isoA2 = geo.properties.ISO_A2
+      const isoA3 = props.ISO_A3 || props.iso_a3 || props.ISO3 || props.iso3 || props.ISO_A3_EH
+      const isoA2 = props.ISO_A2 || props.iso_a2 || props.ISO2 || props.iso2 || props.ISO_A2_EH
       if (isoA3) return String(isoA3)
       if (isoA2) return String(isoA2)
       
@@ -323,17 +325,27 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     } else if (isContinentMode) {
       // 대주 모드: 선택된 대주에 해당하는 나라만 필터링
       const selectedContinent = mode as Continent
+      
+      // 디버깅: 첫 번째 나라의 모든 속성 확인
+      if (geographies.length > 0) {
+        console.log('First country properties:', geographies[0].properties)
+        console.log('First country keys:', Object.keys(geographies[0].properties || {}))
+      }
+      
       filteredGeographies = geographies.filter((geo) => {
-        const isoA2 = geo.properties.ISO_A2
-        const isoA3 = geo.properties.ISO_A3
-        const countryName = geo.properties.NAME || geo.properties.NAME_LONG
+        // world-atlas@2의 실제 속성 이름 확인 (다양한 가능성 시도)
+        const props = geo.properties || {}
+        const isoA2 = props.ISO_A2 || props.iso_a2 || props.ISO2 || props.iso2 || props.ISO_A2_EH
+        const isoA3 = props.ISO_A3 || props.iso_a3 || props.ISO3 || props.iso3 || props.ISO_A3_EH
+        // world-atlas@2는 주로 "name" 속성을 사용
+        const countryName = props.name || props.NAME || props.NAME_LONG || props.NAME_EN || props.name_en || props.ADMIN || props.admin
         
         const continent = getContinentForCountry(isoA2, isoA3, countryName)
         const matches = continent === selectedContinent
         
         // 디버깅: 첫 몇 개 나라의 매핑 확인
-        if (geographies.indexOf(geo) < 10 && !matches) {
-          console.log(`Country: ${countryName || isoA2 || isoA3}, ISO_A2: ${isoA2}, ISO_A3: ${isoA3}, Continent: ${continent}, Selected: ${selectedContinent}, Matches: ${matches}`)
+        if (geographies.indexOf(geo) < 5) {
+          console.log(`Country: ${countryName}, ISO_A2: ${isoA2}, ISO_A3: ${isoA3}, Continent: ${continent}, Selected: ${selectedContinent}, Matches: ${matches}`)
         }
         
         return matches
@@ -342,7 +354,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       
       // 필터링된 나라가 없으면 모든 나라를 표시 (디버깅용)
       if (filteredGeographies.length === 0) {
-        console.warn(`No countries found for ${selectedContinent}. Showing all countries for debugging.`)
+        console.warn(`No countries found for ${selectedContinent}. Showing first 10 countries for debugging.`)
         filteredGeographies = geographies.slice(0, 10) // 처음 10개만 표시
       }
       
