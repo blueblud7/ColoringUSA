@@ -244,7 +244,7 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     }
   }, [allowZoom, selectedState, selectedStateFips])
 
-  function renderGeographies(geographies: Geo[], isCountyMode: boolean, isWorldMode: boolean) {
+  function renderGeographies(geographies: Geo[], isCountyMode: boolean, isWorldMode: boolean): JSX.Element[] {
     // 카운티 모드이고 주가 선택된 경우, 해당 주의 카운티만 필터링
     let filteredGeographies = geographies
     if (isWorldMode) {
@@ -462,6 +462,10 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
     })
   }
 
+  // 타입 좁히기 문제를 피하기 위해 미리 계산
+  const isCountyMode = mode === 'counties'
+  const isWorldMode = mode === 'world'
+
   return (
     <div 
       ref={mapContainerRef}
@@ -478,14 +482,14 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
           >
             <Geographies geography={geoUrl}>
               {({ geographies }: { geographies: Geo[] }) => {
-                return renderGeographies(geographies, mode === 'counties', mode === 'world')
+                return renderGeographies(geographies, isCountyMode, isWorldMode)
               }}
             </Geographies>
           </ZoomableGroup>
         ) : (
           <Geographies geography={geoUrl}>
             {({ geographies }: { geographies: Geo[] }) => {
-              return renderGeographies(geographies, mode === 'counties', mode === 'world')
+              return renderGeographies(geographies, isCountyMode, isWorldMode)
             }}
           </Geographies>
         )}
