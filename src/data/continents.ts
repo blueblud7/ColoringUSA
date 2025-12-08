@@ -10,6 +10,26 @@ export const CONTINENT_NAMES: Record<Continent, string> = {
   'oceania': 'Oceania'
 }
 
+// 각 대주의 기본 중심점과 줌 레벨 (지리 좌표: [경도, 위도])
+export const CONTINENT_CENTERS: Record<Continent, [number, number]> = {
+  'asia': [100, 35],        // 아시아 중심 (중국 부근)
+  'europe': [15, 55],       // 유럽 중심 (독일 부근)
+  'africa': [20, 0],        // 아프리카 중심
+  'north-america': [-100, 40],  // 북미 중심 (미국 중부)
+  'south-america': [-60, -15],  // 남미 중심
+  'oceania': [150, -25]     // 오세아니아 중심 (호주 부근)
+}
+
+// 각 대주의 기본 줌 레벨
+export const CONTINENT_ZOOMS: Record<Continent, number> = {
+  'asia': 1.2,
+  'europe': 2.0,
+  'africa': 1.3,
+  'north-america': 1.5,
+  'south-america': 1.8,
+  'oceania': 2.5
+}
+
 // ISO_A2 코드를 대주로 매핑
 export const COUNTRY_TO_CONTINENT: Record<string, Continent> = {
   // 아시아

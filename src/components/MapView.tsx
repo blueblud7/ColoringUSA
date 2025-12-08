@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps'
 import { geoAlbersUsa, geoBounds } from 'd3-geo'
 import { MapMode } from '../App'
-import { getContinentForCountry, Continent } from '../data/continents'
+import { getContinentForCountry, Continent, CONTINENT_CENTERS, CONTINENT_ZOOMS } from '../data/continents'
 
 interface MapViewProps {
   mode: MapMode
@@ -238,7 +238,9 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
             const centerLat = (minLat + maxLat) / 2
             
             if (isContinentMode) {
-              // 대주 모드: geoMercator 사용, 간단한 줌 계산
+              // 대주 모드: geoMercator 사용, 개선된 줌 계산
+              const selectedContinent = mode as Continent
+              
               // 화면 크기 가져오기
               const containerWidth = mapContainerRef.current?.clientWidth || 960
               const containerHeight = mapContainerRef.current?.clientHeight || 500
@@ -248,25 +250,45 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
               const latRange = maxLat - minLat
               
               if (lonRange > 0 && latRange > 0) {
-                // 여백 고려
-                const margin = 0.15
+                // 여백 고려 (10%)
+                const margin = 0.1
                 const availableWidth = containerWidth * (1 - margin * 2)
                 const availableHeight = containerHeight * (1 - margin * 2)
                 
-                // geoMercator는 경도 360도를 화면 너비로 매핑
-                // 기본적으로 360도 = 960px라고 가정
-                const baseWidth = 960
-                const lonScale = baseWidth / 360
+                // geoMercator 프로젝션에서 스케일 계산
+                // 기본 스케일: 360도 경도 = 960px (기본 줌 레벨 1일 때)
+                const baseScale = 960 / 360
                 
-                // 필요한 줌 레벨 계산
-                const zoomX = (availableWidth / (lonRange * lonScale)) * 0.9
-                const zoomY = (availableHeight / (latRange * lonScale)) * 0.9
-                const zoom = Math.min(zoomX, zoomY, 8) // 최대 줌 레벨 8
+                // 경계 상자의 픽셀 크기 계산 (기본 스케일 기준)
+                const lonPixels = lonRange * baseScale
+                const latPixels = latRange * baseScale * Math.cos((centerLat * Math.PI) / 180) // 위도에 따른 보정
                 
-                // 중심점은 지리 좌표로 사용
-                setZoomCenter([centerLon, centerLat])
-                setZoomLevel(Math.max(zoom, 0.8)) // 최소 줌 레벨 0.8
-                console.log(`Continent zoom: ${zoom}, center: [${centerLon}, ${centerLat}], bounds: [${minLon}, ${minLat}] to [${maxLon}, ${maxLat}]`)
+                // 필요한 줌 레벨 계산 (더 작은 값에 맞춤)
+                const zoomX = availableWidth / lonPixels
+                const zoomY = availableHeight / latPixels
+                let calculatedZoom = Math.min(zoomX, zoomY)
+                
+                // 계산된 줌이 너무 크거나 작으면 기본값 사용
+                if (calculatedZoom < 0.5 || calculatedZoom > 5) {
+                  calculatedZoom = CONTINENT_ZOOMS[selectedContinent] || 1.5
+                }
+                
+                // 중심점: 계산된 중심점과 기본 중심점의 평균 사용 (더 안정적)
+                const defaultCenter = CONTINENT_CENTERS[selectedContinent] || [centerLon, centerLat]
+                const finalCenter: [number, number] = [
+                  (centerLon * 0.7 + defaultCenter[0] * 0.3), // 계산된 중심 70%, 기본 중심 30%
+                  (centerLat * 0.7 + defaultCenter[1] * 0.3)
+                ]
+                
+                setZoomCenter(finalCenter)
+                setZoomLevel(Math.max(calculatedZoom, 0.5)) // 최소 줌 레벨 0.5
+                console.log(`Continent: ${selectedContinent}, zoom: ${calculatedZoom}, center: [${finalCenter[0]}, ${finalCenter[1]}], bounds: [${minLon}, ${minLat}] to [${maxLon}, ${maxLat}]`)
+              } else {
+                // 경계 계산 실패 시 기본값 사용
+                const defaultCenter = CONTINENT_CENTERS[selectedContinent] || [0, 0]
+                const defaultZoom = CONTINENT_ZOOMS[selectedContinent] || 1.5
+                setZoomCenter(defaultCenter)
+                setZoomLevel(defaultZoom)
               }
             } else {
               // 카운티 모드: 기존 로직 사용
@@ -309,6 +331,13 @@ export function MapView({ mode, selectedState, selectedStateFips, coloredRegions
       }, 100) // DOM 렌더링 후 실행
       
       return () => clearTimeout(timer)
+    } else if (isContinentMode) {
+      // 대주 모드이지만 아직 데이터가 로드되지 않은 경우 기본값 설정
+      const selectedContinent = mode as Continent
+      const defaultCenter = CONTINENT_CENTERS[selectedContinent] || [0, 0]
+      const defaultZoom = CONTINENT_ZOOMS[selectedContinent] || 1.5
+      setZoomCenter(defaultCenter)
+      setZoomLevel(defaultZoom)
     } else {
       // 줌이 필요 없을 때는 초기화
       setZoomCenter(null)
