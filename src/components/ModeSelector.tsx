@@ -25,7 +25,7 @@ export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
         </button>
         <button
           onClick={() => onModeChange('counties')}
-          className={`px-6 py-3 rounded-lg font-medium transition-all ${
+          className={`px-6 py-3 rounded-lg font-medium transition-all hidden ${
             mode === 'counties'
               ? 'bg-blue-500 text-white shadow-lg'
               : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
